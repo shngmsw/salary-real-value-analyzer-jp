@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutral (Slate, Zinc, Stone) -->
-    <!-- Application Structure Plan: The application is structured as a narrative analysis. It starts with a high-level summary (Section 1), then delves into the external pressures of inflation and social insurance costs (Section 2), provides an interactive simulation tool for personalized analysis (Section 3), introduces the company's perspective on rising costs (Section 4), details data sources (Section 5), and concludes with a summary of findings (Section 6). This structure guides the user from the problem statement to the underlying causes and their personal and corporate impact, making complex economic data understandable and relevant. The core of the app is the simulator, allowing users to see how these factors affect different salary levels directly. -->
+    <!-- Application Structure Plan: The application is structured as a narrative analysis. It starts with a high-level summary (Section 1), then delves into the external pressures of inflation and social insurance costs (Section 2), provides an interactive simulation tool for personalized analysis (Section 3), introduces the company's perspective on rising costs (Section 4), details data sources (Section 5), and concludes with a summary of findings (Section 6). This structure guides the user from the problem statement to the underlying causes and their personal and corporate impact, making complex economic data understandable and relevant. The core of the app is the simulator, allowing users to easily explore, interact with, understand, and synthesize all key information. -->
     <!-- Visualization & Content Choices: 
         - Key Metrics (Stat Cards): Goal: Inform. Method: Large numbers in HTML/Tailwind. Justification: Quickly convey the core problem (nominal vs. real wage change).
         - CPI/Insurance Charts (Line/Bar): Goal: Show Change/Compare. Method: Chart.js Canvas. Interaction: Tooltips. Justification: Clearly visualize the "hidden" costs driving the problem. These are static context providers for the main interactive chart.
@@ -388,10 +388,9 @@
         document.addEventListener('DOMContentLoaded', function () {
             
             const DATA = {
-                years: [2020, 2021, 2022, 2023, 2024, 2025], // 2020年を追加
-                // 消費者物価指数 (2020年=99.99とした指数) - IMF World Economic Outlook Databasesに基づく
+                years: [2021, 2022, 2023, 2024, 2025], // 2021年スタートに統一
+                // 消費者物価指数 (2021年=99.76とした指数) - IMF World Economic Outlook Databasesに基づく
                 cpi: {
-                    2020: 99.99,
                     2021: 99.76,
                     2022: 102.25,
                     2023: 105.59,
@@ -416,7 +415,6 @@
 
                     // 雇用保険料率 (従業員負担と企業負担)
                     employment: {
-                        2020: { employee: 0.003, employer: 0.006 }, // 2020年度は3/1000 (本人), 9.5/1000 (全体) -> 企業 6.5/1000
                         2021: { employee: 0.003, employer: 0.006 }, // 2021年度は3/1000 (本人), 6/1000 (企業)
                         2022: { employee: 0.005, employer: 0.0085 }, // 2022年10月以降 5/1000 (本人), 13.5/1000 (全体) -> 企業 8.5/1000
                         2023: { employee: 0.006, employer: 0.0095 }, // 令和5年度 6/1000 (本人), 15.5/1000 (全体) -> 企業 9.5/1000
@@ -425,7 +423,6 @@
                     },
                     // 介護保険料率 (従業員負担と企業負担) - 40歳以上64歳以下
                     nursingCare: {
-                        2020: 0.00895, // 1.79% / 2 と仮定
                         2021: 0.00895, // 1.79% / 2
                         2022: 0.00815, // 1.63% / 2
                         2023: 0.008,   // 1.60% / 2
@@ -433,7 +430,6 @@
                         2025: 0.00795  // 1.59% / 2
                     },
                     nursingCareEmployer: { // 企業負担も同率
-                        2020: 0.00895,
                         2021: 0.00895,
                         2022: 0.00815,
                         2023: 0.008,
@@ -443,7 +439,6 @@
                     // 健康保険料率 (従業員負担) - 都道府県別、東京都をデフォルト
                     health: {
                         tokyo: {
-                            2020: 0.04935, // 9.87% / 2 と仮定 (令和2年3月分～98.7/1000)
                             2021: 0.0492, // 9.84% / 2 (令和3年3月分～98.4/1000)
                             2022: 0.04905, // 9.81% / 2 (令和4年3月分～98.1/1000)
                             2023: 0.0500, // 10.00% / 2 (令和5年3月分～100.0/1000)
@@ -453,7 +448,6 @@
                     },
                     healthEmployer: { // 企業負担も同率
                         tokyo: {
-                            2020: 0.04935,
                             2021: 0.0492,
                             2022: 0.04905,
                             2023: 0.0500,
@@ -464,7 +458,6 @@
                 },
                 // 基礎控除額 (年額)
                 basicDeduction: {
-                    2020: 480000,
                     2021: 480000,
                     2022: 480000,
                     2023: 480000,
@@ -483,7 +476,6 @@
                         return 1950000; // 上限額
                     },
                     minGuaranteed: { // 2025年分以後
-                        2020: 550000,
                         2021: 550000,
                         2022: 550000,
                         2023: 550000,
@@ -818,7 +810,7 @@
                     data: {
                         labels: DATA.years,
                         datasets: [{
-                            label: '消費者物価指数 (2020年=100)',
+                            label: '消費者物価指数 (2021年=100)', // ラベルを2021年基準に変更
                             borderColor: 'rgb(220, 38, 127)',
                             backgroundColor: 'rgba(220, 38, 127, 0.1)',
                             fill: true,
@@ -843,7 +835,7 @@
                         scales: {
                             y: {
                                 beginAtZero: false,
-                                min: 95,
+                                min: 99, // 2021年データに合わせて調整
                                 max: 115,
                                 ticks: {
                                     callback: function(value) {
