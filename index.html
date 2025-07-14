@@ -8,18 +8,41 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
     <!-- Chosen Palette: Warm Neutral (Slate, Zinc, Stone) -->
-    <!-- Application Structure Plan: The application is structured as a narrative analysis. It starts with a high-level summary (Section 1), then delves into the external pressures of inflation and social insurance costs (Section 2), provides an interactive simulation tool for personalized analysis (Section 3), and concludes with a summary of findings (Section 4). This structure guides the user from the problem statement to the underlying causes and their personal impact, making complex economic data understandable and relevant. The core of the app is the simulator, allowing users to see how these factors affect different salary levels directly. -->
+    <!-- Application Structure Plan: The application is structured as a narrative analysis. It starts with a high-level summary (Section 1), then delves into the external pressures of inflation and social insurance costs (Section 2), provides an interactive simulation tool for personalized analysis (Section 3), introduces the company's perspective on rising costs (Section 4), details data sources (Section 5), and concludes with a summary of findings (Section 6). This structure guides the user from the problem statement to the underlying causes and their personal and corporate impact, making complex economic data understandable and relevant. The core of the app is the simulator, allowing users to see how these factors affect different salary levels directly. -->
     <!-- Visualization & Content Choices: 
         - Key Metrics (Stat Cards): Goal: Inform. Method: Large numbers in HTML/Tailwind. Justification: Quickly convey the core problem (nominal vs. real wage change).
         - CPI/Insurance Charts (Line/Bar): Goal: Show Change/Compare. Method: Chart.js Canvas. Interaction: Tooltips. Justification: Clearly visualize the "hidden" costs driving the problem. These are static context providers for the main interactive chart.
         - Wage Simulation Chart (Line): Goal: Relationships/Compare. Method: Chart.js Canvas. Interaction: Sliders for salary and raise rate dynamically update the chart. Justification: This is the central analytical tool. It allows users to explore "what-if" scenarios, making the data personal and impactful. It directly addresses the user's core question by showing the divergence between nominal pay, take-home pay, and real purchasing power.
+        - Company Burden Chart (Line): Goal: Inform/Show Change. Method: Chart.js Canvas. Justification: Visualizes the increasing employer social insurance burden, providing the company's perspective on rising labor costs.
         - Data Tables: Goal: Inform/Organize. Method: HTML Table. Justification: Provides transparency by showing the underlying data used for the visualizations.
     -->
     <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
     <style>
         body { font-family: 'Noto Sans JP', sans-serif; background-color: #f8fafc; }
-        .chart-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 350px; max-height: 50vh; }
-        @media (min-width: 768px) { .chart-container { height: 400px; } }
+        .chart-container { 
+            position: relative; 
+            width: 100%; 
+            max-width: 800px; 
+            margin-left: auto; 
+            margin-right: auto; 
+        }
+        /* Specific fixed heights for charts */
+        .chart-container.h-80-fixed {
+            height: 320px; /* Corresponds to Tailwind h-80 */
+        }
+        .chart-container.h-96-fixed {
+            height: 384px; /* Corresponds to Tailwind h-96 */
+        }
+
+        @media (min-width: 768px) { 
+            .chart-container.h-80-fixed {
+                height: 320px; /* Maintain height on larger screens */
+            }
+            .chart-container.h-96-fixed {
+                height: 384px; /* Maintain height on larger screens */
+            }
+        }
+
         .tab-button { transition: all 0.3s ease; }
         .tab-button.active { border-color: #4f46e5; color: #4f46e5; background-color: #eef2ff; }
         .tab-button:not(.active) { border-color: transparent; }
@@ -44,7 +67,9 @@
                     <p class="text-slate-600 leading-relaxed">
                         近年、多くの企業でベースアップや定期昇給が実施され、名目上の給与は増加傾向にあります。提供された給与データを見ても、多くの従業員の給与は上昇しています。しかし、その一方で従業員からは「給与が上がった実感がない」「生活が苦しい」といった声が聞かれます。
                         <br><br>
-                        このレポートは、その「実感との乖離」の背景にある、<strong>物価の上昇（インフレーション）</strong>と<strong>社会保険料の負担増</strong>という2つの要因を可視化し、それらが私たちの手取り給与の「実質的な価値（購買力）」にどのような影響を与えているかを分析するものです。
+                        このレポートは、その「実感との乖離」の背景にある、<strong>物価の上昇（インフレーション）</strong>と<strong>社会保険料・税負担の増加</strong>という2つの要因を可視化し、それらが私たちの手取り給与の「実質的な価値（購買力）」にどのような影響を与えているかを分析するものです。
+                        <br><br>
+                        特に、2025年税制改正では「103万円の壁」が「123万円の壁」に変更されるなど、一部の変更点もありますが、多くの人にとって実質的な負担感は依然として残る可能性があります。
                     </p>
                 </div>
             </section>
@@ -56,16 +81,18 @@
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                         <h3 class="text-xl font-bold mb-4">圧力①：止まらない物価上昇</h3>
                         <p class="text-sm text-slate-600 mb-4">2021年以降、食料品やエネルギー価格を筆頭に物価の上昇が続いています。これは、同じ金額のお金で買えるモノやサービスの量が減ることを意味します。</p>
-                        <div class="chart-container" style="height: 300px;">
-                            <canvas id="cpiChart"></canvas>
+                        <div class="chart-container h-80-fixed">
+                            <canvas id="cpiChart" style="width:100%; height:100%; display:block;"></canvas>
                         </div>
+                        <p class="text-xs text-slate-500 mt-2 text-right">出典：総務省統計局（IMF World Economic Outlook Databasesに基づく）</p>
                     </div>
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                        <h3 class="text-xl font-bold mb-4">圧力②：増え続ける社会保険料</h3>
-                        <p class="text-sm text-slate-600 mb-4">給与から天引きされる社会保険料（健康保険・雇用保険など）の料率も上昇傾向にあります。これにより、額面の給与が同じでも手取り額は減少します。</p>
-                        <div class="chart-container" style="height: 300px;">
-                            <canvas id="insuranceChart"></canvas>
+                        <h3 class="text-xl font-bold mb-4">圧力②：社会保険料・税負担（従業員側）</h3>
+                        <p class="text-sm text-slate-600 mb-4">厚生年金保険料率は固定されていますが、健康保険料率や雇用保険料率は変動します。また、所得税や住民税も手取り額に大きく影響します。</p>
+                        <div class="chart-container h-80-fixed">
+                            <canvas id="insuranceTaxChart" style="width:100%; height:100%; display:block;"></canvas>
                         </div>
+                        <p class="text-xs text-slate-500 mt-2 text-right">出典：厚生労働省、財務省（推計値含む）</p>
                     </div>
                  </div>
             </section>
@@ -76,7 +103,7 @@
                     <h2 class="text-2xl font-bold mb-2 text-center text-indigo-700">インタラクティブ・シミュレーション</h2>
                     <p class="text-center text-slate-600 mb-6">あなたの給与で、名目と実質価値の変化を見てみましょう。</p>
                     
-                    <div class="grid md:grid-cols-2 gap-6 mb-6 p-4 bg-slate-50 rounded-xl">
+                    <div class="grid md:grid-cols-3 gap-6 mb-6 p-4 bg-slate-50 rounded-xl">
                         <div>
                             <label for="salarySlider" id="salaryLabel" class="block font-medium text-slate-700">2021年時点の月給</label>
                             <input type="range" id="salarySlider" min="250000" max="500000" step="10000" value="300000" 
@@ -91,33 +118,243 @@
                                 aria-labelledby="raiseLabel" aria-valuemin="0" aria-valuemax="5" aria-valuenow="2">
                             <div class="text-center font-bold text-indigo-600 text-lg mt-2"><span id="raiseValue">2.0</span> %</div>
                         </div>
+                        <div>
+                            <label for="prefectureSelect" class="block font-medium text-slate-700">健康保険料率（都道府県）</label>
+                            <select id="prefectureSelect" class="w-full p-2 border border-slate-300 rounded-lg mt-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="tokyo">東京都 (9.91%)</option>
+                                <!-- 他の都道府県はデータがないため選択肢に含めない -->
+                            </select>
+                        </div>
                     </div>
 
-                    <div class="chart-container">
-                        <canvas id="wageSimulationChart"></canvas>
+                    <div class="chart-container h-96-fixed">
+                        <canvas id="wageSimulationChart" style="width:100%; height:100%; display:block;"></canvas>
                     </div>
 
                     <div class="mt-6">
                         <h4 class="font-bold text-lg mb-2 text-center">シミュレーション結果の要約</h4>
                         <div id="simulation-summary" class="text-center text-slate-700 bg-indigo-50 p-4 rounded-lg leading-relaxed">
                         </div>
+                        <div class="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <h5 class="font-bold text-md mb-2 text-indigo-700">年間負担額の内訳 (最終年)</h5>
+                            <div id="detailed-breakdown" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                                <!-- 詳細な内訳がここに表示される -->
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
             
-            <!-- Section 4: Conclusion -->
+            <!-- Section 4: Company Perspective -->
+            <section id="company-perspective" class="mb-12">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-4 text-indigo-700">企業目線での昇給の難しさ：見えない人件費の増加</h2>
+                    <p class="text-slate-600 leading-relaxed mb-4">
+                        このグラフは、<strong>インタラクティブシミュレーションで設定された月給と昇給率に基づき、企業が従業員一人あたりに負担する社会保険料（厚生年金、健康保険、雇用保険、介護保険）の月間総額がどのように推移するか</strong>を示しています。これは、企業の「見えない人件費」として、昇給に伴い増加するコストを可視化したものです。
+                    </p>
+                    <div class="chart-container h-96-fixed">
+                        <canvas id="companyBurdenChart" style="width:100%; height:100%; display:block;"></canvas>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2 text-right">出典：厚生労働省、各保険団体（推計値含む）</p>
+                    <div class="mt-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                        <h5 class="font-bold text-md mb-2 text-indigo-700">企業負担の年間社会保険料内訳 (最終年)</h5>
+                        <div id="company-burden-breakdown" class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <!-- 企業負担の詳細な内訳がここに表示される -->
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Section 5: Data Sources and Calculation Details -->
+            <section id="data-details" class="mb-12">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-4 text-indigo-700">データ出典と計算詳細</h2>
+                    <p class="text-slate-600 leading-relaxed mb-4">
+                        本レポートのシミュレーションに使用している主要な税率および控除額は以下の通りです。
+                        これらの数値は、各省庁の公表データや信頼できる情報源に基づいています。
+                    </p>
+
+                    <h3 class="text-xl font-bold mb-3 text-indigo-600">所得税率（復興特別所得税2.1%加算）</h3>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="min-w-full bg-white border border-slate-300 rounded-lg shadow-sm">
+                            <thead>
+                                <tr class="bg-slate-100">
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">課税所得金額</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">税率</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">195万円以下</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">5%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">195万円超 330万円以下</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">10%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">330万円超 695万円以下</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">20%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">695万円超 900万円以下</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">23%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">900万円超 1800万円以下</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">33%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">1800万円超 4000万円以下</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">40%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">4000万円超</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">45%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2 text-right">出典：財務省、日本経済新聞</p>
+
+                    <h3 class="text-xl font-bold mb-3 text-indigo-600">主要控除額（年額）</h3>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="min-w-full bg-white border border-slate-300 rounded-lg shadow-sm">
+                            <thead>
+                                <tr class="bg-slate-100">
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">控除の種類</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">2024年まで</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">2025年以降</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">備考</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">基礎控除</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">48万円</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">58万円</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">所得税</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">給与所得控除（最低保障）</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">55万円</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">65万円</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">所得税</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">住民税基礎控除</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">43万円</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">43万円</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">据え置き</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2 text-right">出典：財務省、三菱UFJニコス</p>
+
+                    <h3 class="text-xl font-bold mb-3 text-indigo-600">社会保険料率（従業員負担および企業負担）</h3>
+                    <div class="overflow-x-auto mb-6">
+                        <table class="min-w-full bg-white border border-slate-300 rounded-lg shadow-sm">
+                            <thead>
+                                <tr class="bg-slate-100">
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">保険の種類</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">負担者</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">2021年</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">2022年</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">2023年</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">2024年</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">2025年</th>
+                                    <th class="py-2 px-4 border-b border-slate-300 text-left text-sm font-semibold text-slate-700">備考</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="hover:bg-slate-50">
+                                    <td rowspan="2" class="py-2 px-4 border-b border-slate-200">厚生年金保険料率</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">従業員</td>
+                                    <td class="py-2 px-4 border-b border-slate-200" colspan="5">9.15%</td>
+                                    <td rowspan="2" class="py-2 px-4 border-b border-slate-200">2017年9月以降固定</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">企業</td>
+                                    <td class="py-2 px-4 border-b border-slate-200" colspan="5">9.15%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td rowspan="2" class="py-2 px-4 border-b border-slate-200">健康保険料率（東京都）</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">従業員</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">4.92%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">4.905%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">5.00%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">4.99%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">4.955%</td>
+                                    <td rowspan="2" class="py-2 px-4 border-b border-slate-200">介護除く、協会けんぽ</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">企業</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">4.92%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">4.905%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">5.00%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">4.99%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">4.955%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td rowspan="2" class="py-2 px-4 border-b border-slate-200">雇用保険料率</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">従業員</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.30%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.50%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.60%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.60%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.55%</td>
+                                    <td rowspan="2" class="py-2 px-4 border-b border-slate-200">一般の事業</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">企業</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.60%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.85%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.95%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.95%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.90%</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td rowspan="2" class="py-2 px-4 border-b border-slate-200">介護保険料率（40-64歳）</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">従業員</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.895%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.815%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.80%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.80%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.795%</td>
+                                    <td rowspan="2" class="py-2 px-4 border-b border-slate-200">全国一律</td>
+                                </tr>
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-2 px-4 border-b border-slate-200">企業</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.895%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.815%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.80%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.80%</td>
+                                    <td class="py-2 px-4 border-b border-slate-200">0.795%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-xs text-slate-500 mt-2 text-right">出典：厚生労働省、各保険団体、IeyasuFOLIO、社会保険労務士法人クラシコ、勤怠打刻ファースト</p>
+
+                </div>
+            </section>
+
+            <!-- Section 6: Conclusion -->
             <section id="conclusion">
                  <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                     <h2 class="text-2xl font-bold mb-4 text-indigo-700">結論：私たちは何を考えるべきか</h2>
                     <p class="text-slate-600 leading-relaxed mb-4">
-                        この分析が示すように、<strong>名目給与の増加だけでは、従業員の生活の質を維持・向上させることは困難な状況</strong>にあります。物価上昇と社会保険料の増加は、昇給の効果を大きく削いでしまい、結果として実質的な購買力は横ばい、あるいは減少するケースさえあります。
+                        この分析が示すように、<strong>名目給与の増加だけでは、従業員の生活の質を維持・向上させることは困難な状況</strong>にあります。物価上昇と社会保険料・税負担の増加は、昇給の効果を大きく削いでしまい、結果として実質的な購買力は横ばい、あるいは減少するケースさえあります。
+                        <br><br>
+                        さらに、企業側も従業員の給与に連動して社会保険料の負担が増加するため、昇給は企業にとって単純なコスト増以上の意味を持ちます。この「見えない人件費」の増加は、企業の経営を圧迫し、さらなる昇給を困難にする要因となります。
                     </p>
                     <div class="bg-indigo-50 border-l-4 border-indigo-500 text-indigo-800 p-4 rounded-r-lg">
                         <p class="font-bold">主な論点：</p>
                         <ul class="list-disc list-inside mt-2 space-y-1">
-                            <li><strong>透明性の確保:</strong> 給与体系や評価制度だけでなく、社会経済的な要因が給与の実質価値にどう影響するかを従業員と共有することが重要です。</li>
+                            <li><strong>透明性の確保:</strong> 給与体系や評価制度だけでなく、社会経済的な要因が給与の実質価値にどう影響するか、そして企業側の負担がどうなっているかを従業員と共有することが重要です。</li>
                             <li><strong>実質価値の向上:</strong> ベースアップに加え、住宅手当や食事補助などの福利厚生、あるいはスキルアップ支援による将来的な昇給機会の創出など、可処分所得を増やす多角的なアプローチが求められます。</li>
-                            <li><strong>継続的な対話:</strong> 従業員が何に不安や不満を感じているのかを定期的に把握し、会社として取り組める対策を共に考えていく姿勢が、信頼関係の構築に繋がります。</li>
+                            <li><strong>継続的な対話: 環境の変化を正確に把握し、従業員が何に不安や不満を感じているのかを定期的に把握し、会社として取り組める対策を共に考えていく姿勢が、信頼関係の構築に繋がります。</strong></li>
                             <li><strong>アクセシビリティの向上:</strong> 本レポートは、スライダーにARIA属性を追加することで、スクリーンリーダーなどの支援技術を利用する方々にも情報が伝わりやすくなるよう改善しました。これにより、より多くのユーザーがこの分析にアクセスし、理解を深めることが可能になります。</li>
                         </ul>
                     </div>
@@ -126,144 +363,272 @@
         </main>
 
         <footer class="text-center mt-12 py-4 border-t border-slate-200">
-            <p class="text-sm text-slate-500">&copy; 2025 給与分析レポート. All rights reserved.</p>
+            <p class="text-sm text-slate-500">
+                &copy; 2025 給与分析レポート. All rights reserved.<br>
+                データ出典：総務省統計局、厚生労働省、財務省、各保険団体（推計値含む）、本レポート内の「データ出典と計算詳細」セクションを参照
+            </p>
         </footer>
 
     </div>
 
     <script>
+        // Declare variables in a higher scope to ensure they are defined when updateSimulation is called
+        let salarySlider;
+        let raiseSlider;
+        let prefectureSelect;
+        let salaryValue;
+        let raiseValue;
+        let simulationSummary;
+        let detailedBreakdown;
+        let companyBurdenBreakdownElement;
+
+        let wageSimulationChart;
+        let companyBurdenChart; // 企業負担チャート用
+
         document.addEventListener('DOMContentLoaded', function () {
             
             const DATA = {
-                years: [2021, 2022, 2023, 2024, 2025],
-                cpi: [100, 102.5, 105.8, 108.4, 110.6], // 2021=100とした指数
-                insuranceRate: { // 従業員負担の社会保険料率（健康保険料(東京)+厚生年金+雇用保険料）の合計の近似値
-                    2021: 0.1437, // 4.92%(健保) + 9.15%(年金) + 0.3%(雇用)
-                    2022: 0.14555, // 4.905% + 9.15% + 0.5% (10月以降)
-                    2023: 0.1475,  // 5.0% + 9.15% + 0.6%
-                    2024: 0.1475,  // 5.0% + 9.15% + 0.6%
-                    2025: 0.1485,  // 予測値
+                years: [2020, 2021, 2022, 2023, 2024, 2025], // 2020年を追加
+                // 消費者物価指数 (2020年=99.99とした指数) - IMF World Economic Outlook Databasesに基づく
+                cpi: {
+                    2020: 99.99,
+                    2021: 99.76,
+                    2022: 102.25,
+                    2023: 105.59,
+                    2024: 108.48,
+                    2025: 111.05
+                },
+                // 所得税率（復興特別所得税2.1%加算）
+                incomeTaxRates: [
+                    { threshold: 1950000, rate: 0.05 },
+                    { threshold: 3300000, rate: 0.10 },
+                    { threshold: 6950000, rate: 0.20 },
+                    { threshold: 9000000, rate: 0.23 },
+                    { threshold: 18000000, rate: 0.33 },
+                    { threshold: 40000000, rate: 0.40 },
+                    { threshold: Infinity, rate: 0.45 }
+                ],
+                // 社会保険料率 (月額給与に対する従業員負担率)
+                socialInsuranceRates: {
+                    // 厚生年金保険料率 (従業員負担) - 2017年9月以降固定
+                    pension: 0.0915, 
+                    pensionEmployer: 0.0915, // 企業負担も同率
+
+                    // 雇用保険料率 (従業員負担と企業負担)
+                    employment: {
+                        2020: { employee: 0.003, employer: 0.006 }, // 2020年度は3/1000 (本人), 9.5/1000 (全体) -> 企業 6.5/1000
+                        2021: { employee: 0.003, employer: 0.006 }, // 2021年度は3/1000 (本人), 6/1000 (企業)
+                        2022: { employee: 0.005, employer: 0.0085 }, // 2022年10月以降 5/1000 (本人), 13.5/1000 (全体) -> 企業 8.5/1000
+                        2023: { employee: 0.006, employer: 0.0095 }, // 令和5年度 6/1000 (本人), 15.5/1000 (全体) -> 企業 9.5/1000
+                        2024: { employee: 0.006, employer: 0.0095 }, // 令和6年度 6/1000 (本人), 15.5/1000 (全体) -> 企業 9.5/1000
+                        2025: { employee: 0.0055, employer: 0.0090 } // 令和7年度 5.5/1000 (本人), 14.5/1000 (全体) -> 企業 9.0/1000
+                    },
+                    // 介護保険料率 (従業員負担と企業負担) - 40歳以上64歳以下
+                    nursingCare: {
+                        2020: 0.00895, // 1.79% / 2 と仮定
+                        2021: 0.00895, // 1.79% / 2
+                        2022: 0.00815, // 1.63% / 2
+                        2023: 0.008,   // 1.60% / 2
+                        2024: 0.008,   // 1.60% / 2
+                        2025: 0.00795  // 1.59% / 2
+                    },
+                    nursingCareEmployer: { // 企業負担も同率
+                        2020: 0.00895,
+                        2021: 0.00895,
+                        2022: 0.00815,
+                        2023: 0.008,
+                        2024: 0.008,
+                        2025: 0.00795
+                    },
+                    // 健康保険料率 (従業員負担) - 都道府県別、東京都をデフォルト
+                    health: {
+                        tokyo: {
+                            2020: 0.04935, // 9.87% / 2 と仮定 (令和2年3月分～98.7/1000)
+                            2021: 0.0492, // 9.84% / 2 (令和3年3月分～98.4/1000)
+                            2022: 0.04905, // 9.81% / 2 (令和4年3月分～98.1/1000)
+                            2023: 0.0500, // 10.00% / 2 (令和5年3月分～100.0/1000)
+                            2024: 0.0499, // 9.98% / 2 (令和6年3月分～99.8/1000)
+                            2025: 0.04955 // 9.91% / 2 (令和7年3月分～99.1/1000)
+                        }
+                    },
+                    healthEmployer: { // 企業負担も同率
+                        tokyo: {
+                            2020: 0.04935,
+                            2021: 0.0492,
+                            2022: 0.04905,
+                            2023: 0.0500,
+                            2024: 0.0499,
+                            2025: 0.04955
+                        }
+                    }
+                },
+                // 基礎控除額 (年額)
+                basicDeduction: {
+                    2020: 480000,
+                    2021: 480000,
+                    2022: 480000,
+                    2023: 480000,
+                    2024: 480000,
+                    2025: 580000 // 2025年分以後
+                },
+                // 給与所得控除額 (年額)
+                // https://www.nta.go.jp/taxes/shiraberu/taxanswer/shotoku/1410.htm
+                employmentIncomeDeduction: {
+                    calculate: function(annualSalary) {
+                        if (annualSalary <= 1625000) return 550000; // 最低保障額
+                        if (annualSalary <= 1800000) return annualSalary * 0.40 - 100000;
+                        if (annualSalary <= 3600000) return annualSalary * 0.30 + 80000;
+                        if (annualSalary <= 6600000) return annualSalary * 0.20 + 440000;
+                        if (annualSalary <= 8500000) return annualSalary * 0.10 + 770000;
+                        return 1950000; // 上限額
+                    },
+                    minGuaranteed: { // 2025年分以後
+                        2020: 550000,
+                        2021: 550000,
+                        2022: 550000,
+                        2023: 550000,
+                        2024: 550000,
+                        2025: 650000 // 2025年分以後
+                    }
                 }
             };
 
-            let wageSimulationChart;
+            const RECONSTRUCTION_TAX_RATE = 0.021; // 復興特別所得税率
 
             function formatCurrency(value) {
                 return new Intl.NumberFormat('ja-JP').format(Math.round(value));
             }
-            
-            // Context Chart 1: CPI
-            const cpiCtx = document.getElementById('cpiChart').getContext('2d');
-            new Chart(cpiCtx, {
-                type: 'line',
-                data: {
-                    labels: DATA.years,
-                    datasets: [{
-                        label: '消費者物価指数 (2021年=100)',
-                        data: DATA.cpi,
-                        borderColor: 'rgb(239, 68, 68)',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        fill: true,
-                        tension: 0.3
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `指数: ${context.parsed.y}`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            ticks: {
-                                callback: function(value) {
-                                    return value;
-                                }
-                            }
-                        }
+
+            // 所得税計算関数
+            function calculateIncomeTax(taxableIncome, year) {
+                let tax = 0;
+                let remainingTaxable = taxableIncome;
+                
+                if (taxableIncome <= 0) return 0;
+
+                for (let i = DATA.incomeTaxRates.length - 1; i >= 0; i--) {
+                    const tier = DATA.incomeTaxRates[i];
+                    const prevThreshold = i > 0 ? DATA.incomeTaxRates[i - 1].threshold : 0;
+                    
+                    if (remainingTaxable > prevThreshold) {
+                        const amountInTier = Math.min(remainingTaxable, tier.threshold) - prevThreshold;
+                        tax += amountInTier * tier.rate;
                     }
                 }
-            });
+                tax += tax * RECONSTRUCTION_TAX_RATE;
+                return Math.max(0, tax);
+            }
 
-            // Context Chart 2: Insurance Rates
-            const insuranceCtx = document.getElementById('insuranceChart').getContext('2d');
-            const insuranceRates = DATA.years.map(year => DATA.insuranceRate[year] * 100);
-            new Chart(insuranceCtx, {
-                type: 'bar',
-                data: {
-                    labels: DATA.years,
-                    datasets: [{
-                        label: '社会保険料率 (従業員負担%)',
-                        data: insuranceRates,
-                        backgroundColor: 'rgb(59, 130, 246)',
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `料率: ${context.parsed.y.toFixed(2)} %`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            ticks: {
-                                callback: function(value) {
-                                    return value.toFixed(1) + '%';
-                                }
-                            }
-                        }
-                    }
+            // 住民税計算関数 (均等割は年額5,000円、所得割は一律10%)
+            function calculateResidentTax(taxableIncome, year) {
+                const residentBasicDeduction = 430000; 
+                let residentTaxableIncome = Math.max(0, taxableIncome + (DATA.basicDeduction[year] - residentBasicDeduction)); 
+
+                let incomeBasedTax = residentTaxableIncome * 0.10;
+                const perCapitaTax = 5000; 
+                return Math.max(0, incomeBasedTax + perCapitaTax);
+            }
+
+            // 社会保険料計算関数 (月額給与、年、都道府県、年齢を考慮) - 従業員負担
+            function calculateSocialInsuranceEmployee(monthlySalary, year, prefecture, age) {
+                let totalInsurance = 0;
+                
+                totalInsurance += monthlySalary * DATA.socialInsuranceRates.pension;
+                const healthRate = DATA.socialInsuranceRates.health[prefecture] ? DATA.socialInsuranceRates.health[prefecture][year] : DATA.socialInsuranceRates.health.tokyo[year];
+                totalInsurance += monthlySalary * healthRate;
+                const employmentRate = DATA.socialInsuranceRates.employment[year].employee; // 従業員負担率を使用
+                totalInsurance += monthlySalary * employmentRate;
+
+                if (age >= 40 && age <= 64) {
+                    const nursingCareRate = DATA.socialInsuranceRates.nursingCare[year];
+                    totalInsurance += monthlySalary * nursingCareRate;
                 }
-            });
 
-            // Main Simulation Chart
-            const salarySlider = document.getElementById('salarySlider');
-            const raiseSlider = document.getElementById('raiseSlider');
-            const salaryValue = document.getElementById('salaryValue');
-            const raiseValue = document.getElementById('raiseValue');
-            const simulationSummary = document.getElementById('simulation-summary');
+                return totalInsurance;
+            }
 
-            function calculateWageData(initialSalary, raiseRate) {
+            // 社会保険料計算関数 (月額給与、年、都道府県、年齢を考慮) - 企業負担
+            function calculateSocialInsuranceEmployer(monthlySalary, year, prefecture, age) {
+                let totalCompanyBurden = 0;
+                
+                totalCompanyBurden += monthlySalary * DATA.socialInsuranceRates.pensionEmployer;
+                const healthEmployerRate = DATA.socialInsuranceRates.healthEmployer[prefecture] ? DATA.socialInsuranceRates.healthEmployer[prefecture][year] : DATA.socialInsuranceRates.healthEmployer.tokyo[year];
+                totalCompanyBurden += monthlySalary * healthEmployerRate;
+                const employmentEmployerRate = DATA.socialInsuranceRates.employment[year].employer; // 企業負担率を使用
+                totalCompanyBurden += monthlySalary * employmentEmployerRate;
+
+                if (age >= 40 && age <= 64) {
+                    const nursingCareEmployerRate = DATA.socialInsuranceRates.nursingCareEmployer[year];
+                    totalCompanyBurden += monthlySalary * nursingCareEmployerRate;
+                }
+                return totalCompanyBurden;
+            }
+
+
+            function calculateWageData(initialSalary, raiseRate, prefecture) {
                 const nominalWages = [];
                 const takeHomeWages = [];
                 const realWages = [];
+                const annualEmployeeBreakdowns = []; // 従業員側の年間税金・社会保険料の内訳
+                const annualCompanyBurdenData = []; // 企業側の年間社会保険料負担
 
-                let currentSalary = initialSalary;
+                let currentMonthlySalary = initialSalary;
                 DATA.years.forEach((year, index) => {
                     if (index > 0) {
-                        currentSalary *= (1 + raiseRate / 100);
+                        currentMonthlySalary *= (1 + raiseRate / 100);
                     }
-                    nominalWages.push(currentSalary);
-                    
-                    const takeHome = currentSalary * (1 - DATA.insuranceRate[year]);
-                    takeHomeWages.push(takeHome);
+                    nominalWages.push(currentMonthlySalary); // 月額
 
-                    const real = (takeHome / DATA.cpi[index]) * DATA.cpi[0];
-                    realWages.push(real);
+                    const currentAnnualSalary = currentMonthlySalary * 12;
+
+                    // 従業員負担の社会保険料 (月額) - 40歳以上と仮定
+                    const monthlySocialInsuranceEmployee = calculateSocialInsuranceEmployee(currentMonthlySalary, year, prefecture, 45); 
+                    const annualSocialInsuranceEmployee = monthlySocialInsuranceEmployee * 12;
+
+                    // 企業負担の社会保険料 (月額) - 40歳以上と仮定
+                    const monthlySocialInsuranceEmployer = calculateSocialInsuranceEmployer(currentMonthlySalary, year, prefecture, 45);
+                    const annualSocialInsuranceEmployer = monthlySocialInsuranceEmployer * 12;
+                    annualCompanyBurdenData.push(annualSocialInsuranceEmployer); // 企業負担を記録 (年間)
+
+                    // 給与所得控除 (年額)
+                    const employmentDeduction = DATA.employmentIncomeDeduction.calculate(currentAnnualSalary);
+                    const actualEmploymentDeduction = Math.max(employmentDeduction, DATA.employmentIncomeDeduction.minGuaranteed[year]);
+
+                    // 課税所得 (年額) = 年収 - 社会保険料(従業員負担) - 給与所得控除 - 基礎控除
+                    const taxableIncome = Math.max(0, currentAnnualSalary - annualSocialInsuranceEmployee - actualEmploymentDeduction - DATA.basicDeduction[year]);
+
+                    // 所得税 (年額)
+                    const annualIncomeTax = calculateIncomeTax(taxableIncome, year);
+
+                    // 住民税 (年額)
+                    const annualResidentTax = calculateResidentTax(taxableIncome, year);
+
+                    const annualDeductions = annualSocialInsuranceEmployee + annualIncomeTax + annualResidentTax;
+                    const annualTakeHome = currentAnnualSalary - annualDeductions;
+                    takeHomeWages.push(annualTakeHome / 12); // 月額に戻す
+
+                    // 実質手取り価値 (月額) - 2021年を基準
+                    const real = (annualTakeHome / DATA.cpi[year]) * DATA.cpi[2021]; // 2021年を基準に計算
+                    realWages.push(real / 12); // 月額に戻す
+
+                    annualEmployeeBreakdowns.push({
+                        year: year,
+                        nominalAnnualSalary: currentAnnualSalary,
+                        annualSocialInsurance: annualSocialInsuranceEmployee,
+                        annualIncomeTax: annualIncomeTax,
+                        annualResidentTax: annualResidentTax,
+                        annualTakeHome: annualTakeHome,
+                        realAnnualValue: real
+                    });
                 });
 
-                return { nominalWages, takeHomeWages, realWages };
+                return { nominalWages, takeHomeWages, realWages, annualEmployeeBreakdowns, annualCompanyBurdenData };
             }
 
             function updateSimulation() {
                 const initialSalary = parseInt(salarySlider.value);
                 const raiseRate = parseFloat(raiseSlider.value);
+                const selectedPrefecture = prefectureSelect.value;
 
                 salaryValue.textContent = formatCurrency(initialSalary);
                 raiseValue.textContent = raiseRate.toFixed(1);
@@ -272,8 +637,7 @@
                 salarySlider.setAttribute('aria-valuenow', initialSalary);
                 raiseSlider.setAttribute('aria-valuenow', raiseRate);
 
-
-                const { nominalWages, takeHomeWages, realWages } = calculateWageData(initialSalary, raiseRate);
+                const { nominalWages, takeHomeWages, realWages, annualEmployeeBreakdowns, annualCompanyBurdenData } = calculateWageData(initialSalary, raiseRate, selectedPrefecture);
                 
                 if (wageSimulationChart) {
                     wageSimulationChart.data.datasets[0].data = nominalWages;
@@ -281,6 +645,14 @@
                     wageSimulationChart.data.datasets[2].data = realWages;
                     wageSimulationChart.update();
                 }
+
+                // Update Company Burden Chart
+                if (companyBurdenChart) {
+                    // 年間データを月間に変換してグラフに渡す
+                    companyBurdenChart.data.datasets[0].data = annualCompanyBurdenData.map(val => val / 12);
+                    companyBurdenChart.update();
+                }
+
 
                 const startNominal = nominalWages[0];
                 const endNominal = nominalWages[nominalWages.length - 1];
@@ -296,8 +668,71 @@
                         名目月給は <strong class="text-xl text-green-600">${formatCurrency(startNominal)}円</strong> から <strong class="text-xl text-green-600">${formatCurrency(endNominal)}円</strong> へ <strong class="text-lg">${nominalChange.toFixed(1)}%</strong> 増加します。
                     </p>
                     <p class="mt-2">
-                        しかし、物価上昇と社会保険料を考慮した実質手取り価値は <strong class="text-xl ${realChange >= 0 ? 'text-blue-600' : 'text-red-600'}">${formatCurrency(startReal)}円</strong> から <strong class="text-xl ${realChange >= 0 ? 'text-blue-600' : 'text-red-600'}">${formatCurrency(endReal)}円</strong> となり、変化率は <strong class="text-lg">${realChange.toFixed(1)}%</strong> に留まります。
+                        しかし、物価上昇と社会保険料・税金を考慮した実質手取り価値は <strong class="text-xl ${realChange >= 0 ? 'text-blue-600' : 'text-red-600'}">${formatCurrency(startReal)}円</strong> から <strong class="text-xl ${realChange >= 0 ? 'text-blue-600' : 'text-red-600'}">${formatCurrency(endReal)}円</strong> となり、変化率は <strong class="text-lg">${realChange.toFixed(1)}%</strong> に留まります。
                     </p>
+                `;
+
+                // 詳細な内訳の表示 (従業員側)
+                const lastYearEmployeeBreakdown = annualEmployeeBreakdowns[annualEmployeeBreakdowns.length - 1];
+                detailedBreakdown.innerHTML = `
+                    <div class="p-2 bg-white rounded-md shadow-sm">
+                        <p class="font-semibold">額面年収:</p>
+                        <p class="text-right">${formatCurrency(lastYearEmployeeBreakdown.nominalAnnualSalary)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm">
+                        <p class="font-semibold">年間社会保険料:</p>
+                        <p class="text-right text-red-600">-${formatCurrency(lastYearEmployeeBreakdown.annualSocialInsurance)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm">
+                        <p class="font-semibold">年間所得税:</p>
+                        <p class="text-right text-red-600">-${formatCurrency(lastYearEmployeeBreakdown.annualIncomeTax)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm">
+                        <p class="font-semibold">年間住民税:</p>
+                        <p class="text-right text-red-600">-${formatCurrency(lastYearEmployeeBreakdown.annualResidentTax)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm col-span-full md:col-span-1">
+                        <p class="font-semibold">年間手取り額:</p>
+                        <p class="text-right text-blue-700 font-bold">${formatCurrency(lastYearEmployeeBreakdown.annualTakeHome)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm col-span-full md:col-span-1">
+                        <p class="font-semibold">実質年間手取り価値:</p>
+                        <p class="text-right text-purple-700 font-bold">${formatCurrency(lastYearEmployeeBreakdown.realAnnualValue)} 円</p>
+                    </div>
+                `;
+
+                // 詳細な内訳の表示 (企業側)
+                const lastYearCompanyBurden = annualCompanyBurdenData[annualCompanyBurdenData.length - 1];
+                // 企業負担の内訳を計算 (最終年のみ)
+                const lastMonthlySalary = nominalWages[nominalWages.length - 1];
+                const lastYear = DATA.years[DATA.years.length - 1];
+                const pensionEmployerCost = lastMonthlySalary * DATA.socialInsuranceRates.pensionEmployer * 12;
+                const healthEmployerCost = lastMonthlySalary * (DATA.socialInsuranceRates.healthEmployer[selectedPrefecture] ? DATA.socialInsuranceRates.healthEmployer[selectedPrefecture][lastYear] : DATA.socialInsuranceRates.healthEmployer.tokyo[lastYear]) * 12;
+                const employmentEmployerCost = lastMonthlySalary * DATA.socialInsuranceRates.employment[lastYear].employer * 12;
+                const nursingCareEmployerCost = (45 >= 40 && 45 <= 64) ? lastMonthlySalary * DATA.socialInsuranceRates.nursingCareEmployer[lastYear] * 12 : 0;
+
+
+                companyBurdenBreakdownElement.innerHTML = `
+                    <div class="p-2 bg-white rounded-md shadow-sm">
+                        <p class="font-semibold">年間厚生年金保険料:</p>
+                        <p class="text-right">${formatCurrency(pensionEmployerCost)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm">
+                        <p class="font-semibold">年間健康保険料（東京）:</p>
+                        <p class="text-right">${formatCurrency(healthEmployerCost)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm">
+                        <p class="font-semibold">年間雇用保険料:</p>
+                        <p class="text-right">${formatCurrency(employmentEmployerCost)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm">
+                        <p class="font-semibold">年間介護保険料（40-64歳）:</p>
+                        <p class="text-right">${formatCurrency(nursingCareEmployerCost)} 円</p>
+                    </div>
+                    <div class="p-2 bg-white rounded-md shadow-sm col-span-full md:col-span-1">
+                        <p class="font-semibold">企業年間総負担額:</p>
+                        <p class="text-right text-purple-700 font-bold">${formatCurrency(lastYearCompanyBurden)} 円</p>
+                    </div>
                 `;
             }
 
@@ -309,7 +744,7 @@
                         labels: DATA.years,
                         datasets: [
                             {
-                                label: '名目給与 (額面)',
+                                label: '名目給与 (月額額面)',
                                 borderColor: 'rgb(34, 197, 94)',
                                 backgroundColor: 'rgba(34, 197, 94, 0.1)',
                                 tension: 0.1,
@@ -317,7 +752,7 @@
                                 data: []
                             },
                             {
-                                label: '手取り給与',
+                                label: '手取り給与 (月額)',
                                 borderColor: 'rgb(59, 130, 246)',
                                 backgroundColor: 'rgba(59, 130, 246, 0.1)',
                                 tension: 0.1,
@@ -326,7 +761,7 @@
                                 data: []
                             },
                              {
-                                label: '実質手取り価値 (2021年基準)',
+                                label: '実質手取り価値 (月額, 2021年基準)',
                                 borderColor: 'rgb(239, 68, 68)',
                                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
                                 tension: 0.1,
@@ -373,11 +808,194 @@
                 });
             }
 
+            // Create CPI Chart
+            function createCPIChart() {
+                const cpiCtx = document.getElementById('cpiChart').getContext('2d');
+                const cpiData = DATA.years.map(year => DATA.cpi[year]);
+                
+                new Chart(cpiCtx, {
+                    type: 'line',
+                    data: {
+                        labels: DATA.years,
+                        datasets: [{
+                            label: '消費者物価指数 (2020年=100)',
+                            borderColor: 'rgb(220, 38, 127)',
+                            backgroundColor: 'rgba(220, 38, 127, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            data: cpiData,
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                min: 95,
+                                max: 115,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toFixed(0);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Create Insurance and Tax Chart
+            function createInsuranceTaxChart() {
+                const insuranceCtx = document.getElementById('insuranceTaxChart').getContext('2d');
+                
+                // 健康保険料率データ（東京都、従業員負担のみ）
+                const healthRates = DATA.years.map(year => (DATA.socialInsuranceRates.health.tokyo[year] * 100));
+                // 雇用保険料率データ（従業員負担のみ）
+                const employmentRates = DATA.years.map(year => (DATA.socialInsuranceRates.employment[year].employee * 100));
+                // 厚生年金保険料率データ（従業員負担）
+                const pensionRates = DATA.years.map(year => (DATA.socialInsuranceRates.pension * 100));
+                
+                new Chart(insuranceCtx, {
+                    type: 'line',
+                    data: {
+                        labels: DATA.years,
+                        datasets: [
+                            {
+                                label: '健康保険料率（従業員負担）',
+                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 3,
+                                data: healthRates
+                            },
+                            {
+                                label: '雇用保険料率（従業員負担）',
+                                borderColor: 'rgb(16, 185, 129)',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 3,
+                                data: employmentRates
+                            },
+                            {
+                                label: '厚生年金保険料率（従業員負担）',
+                                borderColor: 'rgb(168, 85, 247)',
+                                backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                fill: false,
+                                tension: 0.3,
+                                borderWidth: 3,
+                                borderDash: [5, 5],
+                                data: pensionRates
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'top' },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        return `${context.dataset.label}: ${context.parsed.y.toFixed(3)}%`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 10,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value.toFixed(1) + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Create Company Burden Chart
+            function createCompanyBurdenChart() {
+                const companyBurdenCtx = document.getElementById('companyBurdenChart').getContext('2d');
+                companyBurdenChart = new Chart(companyBurdenCtx, {
+                    type: 'line',
+                    data: {
+                        labels: DATA.years,
+                        datasets: [{
+                            label: '企業負担社会保険料総額 (月間)', // ラベルを月間に変更
+                            borderColor: 'rgb(107, 33, 168)',
+                            backgroundColor: 'rgba(107, 33, 168, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            data: []
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'top' },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        // ツールチップで月間表示
+                                        return `${context.dataset.label}: ${formatCurrency(context.parsed.y)} 円`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: {
+                                    callback: function(value) {
+                                        // Y軸の目盛りも月間表示
+                                        return (value / 10000) + '万円';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Assign elements after DOMContentLoaded
+            salarySlider = document.getElementById('salarySlider');
+            raiseSlider = document.getElementById('raiseSlider');
+            prefectureSelect = document.getElementById('prefectureSelect');
+            salaryValue = document.getElementById('salaryValue');
+            raiseValue = document.getElementById('raiseValue');
+            simulationSummary = document.getElementById('simulation-summary');
+            detailedBreakdown = document.getElementById('detailed-breakdown');
+            companyBurdenBreakdownElement = document.getElementById('company-burden-breakdown');
+
+
+            createCPIChart();
+            createInsuranceTaxChart();
             createSimulationChart();
+            createCompanyBurdenChart();
             updateSimulation();
 
             salarySlider.addEventListener('input', updateSimulation);
             raiseSlider.addEventListener('input', updateSimulation);
+            prefectureSelect.addEventListener('change', updateSimulation);
         });
     </script>
 
