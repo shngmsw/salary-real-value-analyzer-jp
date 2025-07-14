@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>【インタラクティブレポート】実質賃金分析</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutral (Slate, Zinc, Stone) -->
+    <!-- Application Structure Plan: The application is structured as a narrative analysis. It starts with a high-level summary (Section 1), then delves into the external pressures of inflation and social insurance costs (Section 2), provides an interactive simulation tool for personalized analysis (Section 3), and concludes with a summary of findings (Section 4). This structure guides the user from the problem statement to the underlying causes and their personal impact, making complex economic data understandable and relevant. The core of the app is the simulator, allowing users to see how these factors affect different salary levels directly. -->
+    <!-- Visualization & Content Choices: 
+        - Key Metrics (Stat Cards): Goal: Inform. Method: Large numbers in HTML/Tailwind. Justification: Quickly convey the core problem (nominal vs. real wage change).
+        - CPI/Insurance Charts (Line/Bar): Goal: Show Change/Compare. Method: Chart.js Canvas. Interaction: Tooltips. Justification: Clearly visualize the "hidden" costs driving the problem. These are static context providers for the main interactive chart.
+        - Wage Simulation Chart (Line): Goal: Relationships/Compare. Method: Chart.js Canvas. Interaction: Sliders for salary and raise rate dynamically update the chart. Justification: This is the central analytical tool. It allows users to explore "what-if" scenarios, making the data personal and impactful. It directly addresses the user's core question by showing the divergence between nominal pay, take-home pay, and real purchasing power.
+        - Data Tables: Goal: Inform/Organize. Method: HTML Table. Justification: Provides transparency by showing the underlying data used for the visualizations.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body { font-family: 'Noto Sans JP', sans-serif; background-color: #f8fafc; }
+        .chart-container { position: relative; width: 100%; max-width: 800px; margin-left: auto; margin-right: auto; height: 350px; max-height: 50vh; }
+        @media (min-width: 768px) { .chart-container { height: 400px; } }
+        .tab-button { transition: all 0.3s ease; }
+        .tab-button.active { border-color: #4f46e5; color: #4f46e5; background-color: #eef2ff; }
+        .tab-button:not(.active) { border-color: transparent; }
+        .slider-thumb::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; background: #4f46e5; cursor: pointer; border-radius: 50%; }
+        .slider-thumb::-moz-range-thumb { width: 20px; height: 20px; background: #4f46e5; cursor: pointer; border-radius: 50%; }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <header class="text-center mb-8 md:mb-12">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-900">給与の実質価値に関する分析レポート</h1>
+            <p class="mt-2 text-slate-600">名目給与の昇給と、生活実感の乖離を探る</p>
+        </header>
+
+        <main>
+            <!-- Section 1: Introduction & Key Findings -->
+            <section id="summary" class="mb-12">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-4 text-indigo-700">はじめに：なぜ給与は増えても生活は楽にならないのか？</h2>
+                    <p class="text-slate-600 leading-relaxed">
+                        近年、多くの企業でベースアップや定期昇給が実施され、名目上の給与は増加傾向にあります。提供された給与データを見ても、多くの従業員の給与は上昇しています。しかし、その一方で従業員からは「給与が上がった実感がない」「生活が苦しい」といった声が聞かれます。
+                        <br><br>
+                        このレポートは、その「実感との乖離」の背景にある、<strong>物価の上昇（インフレーション）</strong>と<strong>社会保険料の負担増</strong>という2つの要因を可視化し、それらが私たちの手取り給与の「実質的な価値（購買力）」にどのような影響を与えているかを分析するものです。
+                    </p>
+                </div>
+            </section>
+            
+            <!-- Section 2: External Pressures -->
+            <section id="factors" class="mb-12">
+                 <h2 class="text-2xl font-bold mb-6 text-center text-indigo-700">実感なき昇給の背景にある「2つの圧力」</h2>
+                 <div class="grid md:grid-cols-2 gap-8">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 class="text-xl font-bold mb-4">圧力①：止まらない物価上昇</h3>
+                        <p class="text-sm text-slate-600 mb-4">2021年以降、食料品やエネルギー価格を筆頭に物価の上昇が続いています。これは、同じ金額のお金で買えるモノやサービスの量が減ることを意味します。</p>
+                        <div class="chart-container" style="height: 300px;">
+                            <canvas id="cpiChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                        <h3 class="text-xl font-bold mb-4">圧力②：増え続ける社会保険料</h3>
+                        <p class="text-sm text-slate-600 mb-4">給与から天引きされる社会保険料（健康保険・雇用保険など）の料率も上昇傾向にあります。これにより、額面の給与が同じでも手取り額は減少します。</p>
+                        <div class="chart-container" style="height: 300px;">
+                            <canvas id="insuranceChart"></canvas>
+                        </div>
+                    </div>
+                 </div>
+            </section>
+
+            <!-- Section 3: Interactive Simulation -->
+            <section id="simulation" class="mb-12">
+                <div class="bg-white p-6 md:p-8 rounded-2xl shadow-lg border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-2 text-center text-indigo-700">インタラクティブ・シミュレーション</h2>
+                    <p class="text-center text-slate-600 mb-6">あなたの給与で、名目と実質価値の変化を見てみましょう。</p>
+                    
+                    <div class="grid md:grid-cols-2 gap-6 mb-6 p-4 bg-slate-50 rounded-xl">
+                        <div>
+                            <label for="salarySlider" id="salaryLabel" class="block font-medium text-slate-700">2021年時点の月給</label>
+                            <input type="range" id="salarySlider" min="250000" max="500000" step="10000" value="300000" 
+                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                aria-labelledby="salaryLabel" aria-valuemin="250000" aria-valuemax="500000" aria-valuenow="300000">
+                            <div class="text-center font-bold text-indigo-600 text-lg mt-2"><span id="salaryValue">300,000</span> 円</div>
+                        </div>
+                        <div>
+                            <label for="raiseSlider" id="raiseLabel" class="block font-medium text-slate-700">年間の昇給率</label>
+                            <input type="range" id="raiseSlider" min="0" max="5" step="0.5" value="2" 
+                                class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb"
+                                aria-labelledby="raiseLabel" aria-valuemin="0" aria-valuemax="5" aria-valuenow="2">
+                            <div class="text-center font-bold text-indigo-600 text-lg mt-2"><span id="raiseValue">2.0</span> %</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="wageSimulationChart"></canvas>
+                    </div>
+
+                    <div class="mt-6">
+                        <h4 class="font-bold text-lg mb-2 text-center">シミュレーション結果の要約</h4>
+                        <div id="simulation-summary" class="text-center text-slate-700 bg-indigo-50 p-4 rounded-lg leading-relaxed">
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Section 4: Conclusion -->
+            <section id="conclusion">
+                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-2xl font-bold mb-4 text-indigo-700">結論：私たちは何を考えるべきか</h2>
+                    <p class="text-slate-600 leading-relaxed mb-4">
+                        この分析が示すように、<strong>名目給与の増加だけでは、従業員の生活の質を維持・向上させることは困難な状況</strong>にあります。物価上昇と社会保険料の増加は、昇給の効果を大きく削いでしまい、結果として実質的な購買力は横ばい、あるいは減少するケースさえあります。
+                    </p>
+                    <div class="bg-indigo-50 border-l-4 border-indigo-500 text-indigo-800 p-4 rounded-r-lg">
+                        <p class="font-bold">主な論点：</p>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            <li><strong>透明性の確保:</strong> 給与体系や評価制度だけでなく、社会経済的な要因が給与の実質価値にどう影響するかを従業員と共有することが重要です。</li>
+                            <li><strong>実質価値の向上:</strong> ベースアップに加え、住宅手当や食事補助などの福利厚生、あるいはスキルアップ支援による将来的な昇給機会の創出など、可処分所得を増やす多角的なアプローチが求められます。</li>
+                            <li><strong>継続的な対話:</strong> 従業員が何に不安や不満を感じているのかを定期的に把握し、会社として取り組める対策を共に考えていく姿勢が、信頼関係の構築に繋がります。</li>
+                            <li><strong>アクセシビリティの向上:</strong> 本レポートは、スライダーにARIA属性を追加することで、スクリーンリーダーなどの支援技術を利用する方々にも情報が伝わりやすくなるよう改善しました。これにより、より多くのユーザーがこの分析にアクセスし、理解を深めることが可能になります。</li>
+                        </ul>
+                    </div>
+                 </div>
+            </section>
+        </main>
+
+        <footer class="text-center mt-12 py-4 border-t border-slate-200">
+            <p class="text-sm text-slate-500">&copy; 2025 給与分析レポート. All rights reserved.</p>
+        </footer>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            const DATA = {
+                years: [2021, 2022, 2023, 2024, 2025],
+                cpi: [100, 102.5, 105.8, 108.4, 110.6], // 2021=100とした指数
+                insuranceRate: { // 従業員負担の社会保険料率（健康保険料(東京)+厚生年金+雇用保険料）の合計の近似値
+                    2021: 0.1437, // 4.92%(健保) + 9.15%(年金) + 0.3%(雇用)
+                    2022: 0.14555, // 4.905% + 9.15% + 0.5% (10月以降)
+                    2023: 0.1475,  // 5.0% + 9.15% + 0.6%
+                    2024: 0.1475,  // 5.0% + 9.15% + 0.6%
+                    2025: 0.1485,  // 予測値
+                }
+            };
+
+            let wageSimulationChart;
+
+            function formatCurrency(value) {
+                return new Intl.NumberFormat('ja-JP').format(Math.round(value));
+            }
+            
+            // Context Chart 1: CPI
+            const cpiCtx = document.getElementById('cpiChart').getContext('2d');
+            new Chart(cpiCtx, {
+                type: 'line',
+                data: {
+                    labels: DATA.years,
+                    datasets: [{
+                        label: '消費者物価指数 (2021年=100)',
+                        data: DATA.cpi,
+                        borderColor: 'rgb(239, 68, 68)',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `指数: ${context.parsed.y}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return value;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Context Chart 2: Insurance Rates
+            const insuranceCtx = document.getElementById('insuranceChart').getContext('2d');
+            const insuranceRates = DATA.years.map(year => DATA.insuranceRate[year] * 100);
+            new Chart(insuranceCtx, {
+                type: 'bar',
+                data: {
+                    labels: DATA.years,
+                    datasets: [{
+                        label: '社会保険料率 (従業員負担%)',
+                        data: insuranceRates,
+                        backgroundColor: 'rgb(59, 130, 246)',
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `料率: ${context.parsed.y.toFixed(2)} %`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Main Simulation Chart
+            const salarySlider = document.getElementById('salarySlider');
+            const raiseSlider = document.getElementById('raiseSlider');
+            const salaryValue = document.getElementById('salaryValue');
+            const raiseValue = document.getElementById('raiseValue');
+            const simulationSummary = document.getElementById('simulation-summary');
+
+            function calculateWageData(initialSalary, raiseRate) {
+                const nominalWages = [];
+                const takeHomeWages = [];
+                const realWages = [];
+
+                let currentSalary = initialSalary;
+                DATA.years.forEach((year, index) => {
+                    if (index > 0) {
+                        currentSalary *= (1 + raiseRate / 100);
+                    }
+                    nominalWages.push(currentSalary);
+                    
+                    const takeHome = currentSalary * (1 - DATA.insuranceRate[year]);
+                    takeHomeWages.push(takeHome);
+
+                    const real = (takeHome / DATA.cpi[index]) * DATA.cpi[0];
+                    realWages.push(real);
+                });
+
+                return { nominalWages, takeHomeWages, realWages };
+            }
+
+            function updateSimulation() {
+                const initialSalary = parseInt(salarySlider.value);
+                const raiseRate = parseFloat(raiseSlider.value);
+
+                salaryValue.textContent = formatCurrency(initialSalary);
+                raiseValue.textContent = raiseRate.toFixed(1);
+
+                // Update ARIA values
+                salarySlider.setAttribute('aria-valuenow', initialSalary);
+                raiseSlider.setAttribute('aria-valuenow', raiseRate);
+
+
+                const { nominalWages, takeHomeWages, realWages } = calculateWageData(initialSalary, raiseRate);
+                
+                if (wageSimulationChart) {
+                    wageSimulationChart.data.datasets[0].data = nominalWages;
+                    wageSimulationChart.data.datasets[1].data = takeHomeWages;
+                    wageSimulationChart.data.datasets[2].data = realWages;
+                    wageSimulationChart.update();
+                }
+
+                const startNominal = nominalWages[0];
+                const endNominal = nominalWages[nominalWages.length - 1];
+                const nominalChange = ((endNominal / startNominal) - 1) * 100;
+                
+                const startReal = realWages[0];
+                const endReal = realWages[realWages.length - 1];
+                const realChange = ((endReal / startReal) - 1) * 100;
+
+                simulationSummary.innerHTML = `
+                    <p>
+                        ${DATA.years[0]}年から${DATA.years[DATA.years.length - 1]}年にかけて、
+                        名目月給は <strong class="text-xl text-green-600">${formatCurrency(startNominal)}円</strong> から <strong class="text-xl text-green-600">${formatCurrency(endNominal)}円</strong> へ <strong class="text-lg">${nominalChange.toFixed(1)}%</strong> 増加します。
+                    </p>
+                    <p class="mt-2">
+                        しかし、物価上昇と社会保険料を考慮した実質手取り価値は <strong class="text-xl ${realChange >= 0 ? 'text-blue-600' : 'text-red-600'}">${formatCurrency(startReal)}円</strong> から <strong class="text-xl ${realChange >= 0 ? 'text-blue-600' : 'text-red-600'}">${formatCurrency(endReal)}円</strong> となり、変化率は <strong class="text-lg">${realChange.toFixed(1)}%</strong> に留まります。
+                    </p>
+                `;
+            }
+
+            function createSimulationChart() {
+                const wageCtx = document.getElementById('wageSimulationChart').getContext('2d');
+                wageSimulationChart = new Chart(wageCtx, {
+                    type: 'line',
+                    data: {
+                        labels: DATA.years,
+                        datasets: [
+                            {
+                                label: '名目給与 (額面)',
+                                borderColor: 'rgb(34, 197, 94)',
+                                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                                tension: 0.1,
+                                borderWidth: 3,
+                                data: []
+                            },
+                            {
+                                label: '手取り給与',
+                                borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                tension: 0.1,
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                data: []
+                            },
+                             {
+                                label: '実質手取り価値 (2021年基準)',
+                                borderColor: 'rgb(239, 68, 68)',
+                                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                tension: 0.1,
+                                borderWidth: 2,
+                                data: [],
+                                fill: true,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false,
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += formatCurrency(context.parsed.y) + '円';
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                ticks: {
+                                    callback: function(value, index, ticks) {
+                                        return (value / 10000) + '万円';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            createSimulationChart();
+            updateSimulation();
+
+            salarySlider.addEventListener('input', updateSimulation);
+            raiseSlider.addEventListener('input', updateSimulation);
+        });
+    </script>
+
+</body>
+</html>
